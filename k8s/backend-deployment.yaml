@@ -1,0 +1,33 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: cfrs-backend
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: cfrs-backend
+  template:
+    metadata:
+      labels:
+        app: cfrs-backend
+    spec:
+      containers:
+      - name: backend
+        image: rajb957/cfrs-backend:latest
+        env:
+        - name: DATABASE_URL
+          value: postgresql://postgres:password@postgres:5432/cfrs_db
+        ports:
+        - containerPort: 8000
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: cfrs-backend
+spec:
+  ports:
+  - port: 8000
+    targetPort: 8000
+  selector:
+    app: cfrs-backend

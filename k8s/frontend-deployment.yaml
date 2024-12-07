@@ -1,0 +1,35 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: cfrs-frontend
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: cfrs-frontend
+  template:
+    metadata:
+      labels:
+        app: cfrs-frontend
+    spec:
+      containers:
+      - name: frontend
+        image: rajbunsha/cfrs-frontend:latest
+        ports:
+        - containerPort: 3000
+      initContainers:
+      - name: wait-for-backend
+        image: busybox:1.31.0
+        command: ['sh', '-c', 'until nc -z cfrs-backend 8000; do echo waiting for backend; sleep 2; done;']
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: cfrs-frontend
+spec:
+  selector:
+    app: cfrs-frontend
+  ports:
+    - protocol: TCP
+      port: 3000
+      targetPort: 3000

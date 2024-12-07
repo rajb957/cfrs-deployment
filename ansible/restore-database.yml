@@ -1,0 +1,35 @@
+---
+- name: Restore PostgreSQL database
+  hosts: db_server
+  become: true
+  vars:
+    db_user: postgres
+    db_password: password
+    db_host: localhost
+    db_name: cfrs_db
+    db_schema: public
+  tasks:
+    - name: Install PostgreSQL client
+      apt:
+        name: postgresql-client
+        state: present
+
+    - name: Upload the backup.sql file
+      copy:
+        src: ./backup/backup.sql
+        dest: /tmp/backup.sql
+        owner: postgres
+        group: postgres
+        mode: '0600'
+
+    - name: Restore the database from backup.sql
+      shell: |
+        PGPASSWORD={{ db_password }} psql -U {{ db_user }} -h {{ db_host }} -d {{ db_name }} < /tmp/backup.sql
+      environment:
+        PGOPTIONS: "--search-path={{ db_schema }}"
+      become_user: postgres
+
+    - name: Remove the backup.sql file after restoration
+      file:
+        path: /tmp/backup.sql
+        state: absent
