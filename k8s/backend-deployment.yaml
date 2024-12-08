@@ -26,6 +26,7 @@ kind: Service
 metadata:
   name: cfrs-backend
 spec:
+  type: ClusterIP
   ports:
   - port: 8000
     targetPort: 8000
