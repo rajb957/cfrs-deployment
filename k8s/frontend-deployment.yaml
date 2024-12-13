@@ -2,8 +2,6 @@ apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: cfrs-frontend
-  labels:
-    app: cfrs-frontend
 spec:
   replicas: 1
   selector:
