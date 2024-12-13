@@ -14,7 +14,7 @@ spec:
     spec:
       containers:
       - name: frontend
-        image: rajbunsha/cfrs-frontend:latest
+        image: rajb957/cfrs-frontend:latest
         ports:
         - containerPort: 3000
 ---
