@@ -15,5 +15,5 @@
         msg: "Container Names: {{ container_names.stdout }}"
 
     - name: Copy the backup.sql file to the postgres pod
-      command: >
-        kubectl cp ./backup/backup.sql {{ postgres_pod.stdout }}:/tmp/backup.sql -c <container-name>
+      command:
+        kubectl cp ../backup/backup.sql {{ postgres_pod.stdout }}:/tmp/backup.sql -c container_names
