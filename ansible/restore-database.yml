@@ -1,35 +1,15 @@
 ---
 - name: Restore PostgreSQL database
-  hosts: all
-  become: true
-  vars:
-    db_user: postgres
-    db_password: password
-    db_host: localhost
-    db_name: cfrs_db
-    db_schema: public
+  hosts: localhost
   tasks:
-    - name: Install PostgreSQL client
-      apt:
-        name: postgresql-client
-        state: present
+    - name: Get the name of the postgres pod
+      shell: kubectl get pods -l app=postgres -o jsonpath='{.items[0].metadata.name}'
+      register: postgres_pod
 
-    - name: Upload the backup.sql file
-      copy:
-        src: ./backup/backup.sql
-        dest: /tmp/backup.sql
-        owner: postgres
-        group: postgres
-        mode: '0600'
+    - name: Copy the backup.sql file to the postgres pod
+      command: kubectl cp ./backup/backup.sql {{ postgres_pod.stdout }}:/tmp/backup.sql
 
     - name: Restore the database from backup.sql
       shell: |
-        PGPASSWORD={{ db_password }} psql -U {{ db_user }} -h {{ db_host }} -d {{ db_name }} < /tmp/backup.sql
-      environment:
-        PGOPTIONS: "--search-path={{ db_schema }}"
-      become_user: postgres
-
-    - name: Remove the backup.sql file after restoration
-      file:
-        path: /tmp/backup.sql
-        state: absent
+        kubectl exec {{ postgres_pod.stdout }} -- bash -c \
+          "PGPASSWORD=password psql -U postgres -d cfrs_db -f /tmp/backup.sql"
