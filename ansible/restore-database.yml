@@ -32,20 +32,9 @@
 
     - name: Restore the database from backup.sql
       shell: |
-<<<<<<< HEAD
         kubectl exec {{ postgres_pod.stdout }} -- bash -c \
-          "PGPASSWORD=password psql -U postgres -d cfrs_db -f /tmp/backup.sql"
-      register: restore_result
-      ignore_errors: no
-=======
-        kubectl exec {{ postgres_pod.stdout }} -- bash -c \
-          "PGPASSWORD=password psql -U postgres -d cfrs_db -f /tmp/backup.sql"
->>>>>>> db5166e707e5ee7857661ea805c8f15fe35f824b
+        "PGPASSWORD=password psql -U postgres -d cfrs_db -f /tmp/backup.sql"
 
-<<<<<<< HEAD
     - name: Debug restore result
       debug:
         var: restore_result
-
-=======
->>>>>>> db5166e707e5ee7857661ea805c8f15fe35f824b
