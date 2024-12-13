@@ -1,40 +1,14 @@
----
-- name: Restore PostgreSQL database
-  hosts: localhost
-  tasks:
     - name: Get the name of the postgres pod
       shell: kubectl get pods -l app=postgres -o jsonpath='{.items[0].metadata.name}'
       register: postgres_pod
 
-    - name: Debug pod name
+    - name: Debug container names in the postgres pod
+      shell: kubectl get pod {{ postgres_pod.stdout }} -o jsonpath='{.spec.containers[*].name}'
+      register: container_names
+    - name: Display container names
       debug:
-        msg: "Postgres Pod Name: {{ postgres_pod.stdout }}"
-
-    - name: Verify if backup.sql exists
-      stat:
-        path: ../backup/backup.sql
-      register: backup_file
-
-    - name: Fail if backup.sql is missing
-      fail:
-        msg: "backup.sql file not found in ../backup/backup.sql"
-      when: not backup_file.stat.exists
+        msg: "Container Names: {{ container_names.stdout }}"
 
     - name: Copy the backup.sql file to the postgres pod
       command: >
-        kubectl cp ../backup/backup.sql {{ postgres_pod.stdout }}:/tmp/backup.sql
-      register: copy_result
-      ignore_errors: no
-
-    - name: Debug copy result
-      debug:
-        var: copy_result
-
-    - name: Restore the database from backup.sql
-      shell: |
-        kubectl exec {{ postgres_pod.stdout }} -- bash -c \
-        "PGPASSWORD=password psql -U postgres -d cfrs_db -f /tmp/backup.sql"
-
-    - name: Debug restore result
-      debug:
-        var: restore_result
+        kubectl cp ./backup/backup.sql {{ postgres_pod.stdout }}:/tmp/backup.sql -c <container-name>
