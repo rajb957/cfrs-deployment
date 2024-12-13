@@ -1,6 +1,6 @@
 ---
 - name: Restore PostgreSQL database
-  hosts: db_server
+  hosts: all
   become: true
   vars:
     db_user: postgres
