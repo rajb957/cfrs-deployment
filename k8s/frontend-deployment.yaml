@@ -50,17 +50,17 @@ spec:
           periodSeconds: 10
 
       # Initialization Container for Backend Dependency
-      initContainers:
-      - name: wait-for-backend
-        image: busybox:1.31.0
-        command: 
-        - 'sh'
-        - '-c'
-        - |
-          until wget -qO- __BACKEND_URL__/health || wget -qO- __BACKEND_URL__/healthz; do 
-            echo "Waiting for backend to be ready..."; 
-            sleep 3; 
-          done
+      # initContainers:
+      # - name: wait-for-backend
+      #   image: busybox:1.31.0
+      #   command: 
+      #   - 'sh'
+      #   - '-c'
+      #   - |
+      #     until wget -qO- __BACKEND_URL__/health || wget -qO- __BACKEND_URL__/healthz; do 
+      #       echo "Waiting for backend to be ready..."; 
+      #       sleep 3; 
+      #     done
 
 ---
 apiVersion: v1
