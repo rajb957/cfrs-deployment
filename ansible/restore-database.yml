@@ -6,10 +6,46 @@
       shell: kubectl get pods -l app=postgres -o jsonpath='{.items[0].metadata.name}'
       register: postgres_pod
 
+    - name: Debug pod name
+      debug:
+        msg: "Postgres Pod Name: {{ postgres_pod.stdout }}"
+
+    - name: Verify if backup.sql exists
+      stat:
+        path: ../backup/backup.sql
+      register: backup_file
+
+    - name: Fail if backup.sql is missing
+      fail:
+        msg: "backup.sql file not found in ../backup/backup.sql"
+      when: not backup_file.stat.exists
+
     - name: Copy the backup.sql file to the postgres pod
-      command: kubectl cp ../backup/backup.sql {{ postgres_pod.stdout }}:/tmp/backup.sql
+      command: >
+        kubectl cp ../backup/backup.sql {{ postgres_pod.stdout }}:/tmp/backup.sql
+      register: copy_result
+      ignore_errors: no
+
+    - name: Debug copy result
+      debug:
+        var: copy_result
 
     - name: Restore the database from backup.sql
       shell: |
+<<<<<<< HEAD
         kubectl exec {{ postgres_pod.stdout }} -- bash -c \
           "PGPASSWORD=password psql -U postgres -d cfrs_db -f /tmp/backup.sql"
+      register: restore_result
+      ignore_errors: no
+=======
+        kubectl exec {{ postgres_pod.stdout }} -- bash -c \
+          "PGPASSWORD=password psql -U postgres -d cfrs_db -f /tmp/backup.sql"
+>>>>>>> db5166e707e5ee7857661ea805c8f15fe35f824b
+
+<<<<<<< HEAD
+    - name: Debug restore result
+      debug:
+        var: restore_result
+
+=======
+>>>>>>> db5166e707e5ee7857661ea805c8f15fe35f824b
