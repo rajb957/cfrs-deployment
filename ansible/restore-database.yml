@@ -7,7 +7,7 @@
       register: postgres_pod
 
     - name: Copy the backup.sql file to the postgres pod
-      command: kubectl cp ./backup/backup.sql {{ postgres_pod.stdout }}:/tmp/backup.sql
+      command: kubectl cp ../backup/backup.sql {{ postgres_pod.stdout }}:/tmp/backup.sql
 
     - name: Restore the database from backup.sql
       shell: |
