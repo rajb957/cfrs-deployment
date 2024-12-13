@@ -1,3 +1,7 @@
+---
+- name: Restore PostgreSQL Database
+  hosts: localhost
+  tasks:
     - name: Get the name of the postgres pod
       shell: kubectl get pods -l app=postgres -o jsonpath='{.items[0].metadata.name}'
       register: postgres_pod
@@ -5,6 +9,7 @@
     - name: Debug container names in the postgres pod
       shell: kubectl get pod {{ postgres_pod.stdout }} -o jsonpath='{.spec.containers[*].name}'
       register: container_names
+
     - name: Display container names
       debug:
         msg: "Container Names: {{ container_names.stdout }}"
