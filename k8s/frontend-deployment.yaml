@@ -75,6 +75,6 @@ spec:
     app: cfrs-frontend
   ports:
     - protocol: TCP
-      port: 3000
-      targetPort: 3000
+      port: 5173
+      targetPort: 5173
       nodePort: 30001  # Custom NodePort for external access (range: 30000-32767)
