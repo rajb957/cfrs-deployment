@@ -2,6 +2,8 @@ apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: logstash
+  labels:
+    app: logstash
 spec:
   replicas: 1
   selector:
@@ -17,11 +19,15 @@ spec:
         image: docker.elastic.co/logstash/logstash:8.10.0
         ports:
         - containerPort: 5044
-          name: logstash
         volumeMounts:
-        - name: config-volume
+        - name: logstash-config
+          mountPath: /usr/share/logstash/config
+        - name: logstash-pipeline
           mountPath: /usr/share/logstash/pipeline
-    volumes:
-    - name: config-volume
-      configMap:
-        name: logstash-config
+      volumes:
+      - name: logstash-config
+        configMap:
+          name: logstash-config
+      - name: logstash-pipeline
+        configMap:
+          name: logstash-pipeline
