@@ -17,7 +17,8 @@ spec:
         image: rajb957/cfrs-backend:latest
         env:
         - name: DATABASE_URL
-          value: postgresql://postgres:8opUUxq.~I7yXs8UJIS7xIR3G35LJvpB@autorack.proxy.rlwy.net:37716/railway
+          # value: postgresql://postgres:8opUUxq.~I7yXs8UJIS7xIR3G35LJvpB@autorack.proxy.rlwy.net:37716/railway
+          value: postgresql://postgres:password@postgres:5432/cfrs_db
         ports:
         - containerPort: 8000
 ---
