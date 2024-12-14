@@ -1,15 +1,29 @@
 ---
-- hosts: database
+- hosts: all
   become: true
   become_method: sudo
   tasks:
-    - name: Ensure PostgreSQL client is installed
+    - name: Install PostgreSQL client
       dnf:
         name: postgresql
         state: present
 
-    - name: Restore database
+    - name: Copy the backup file to the remote server
+      copy:
+        src: ../backup/backup.sql
+        dest: /tmp/backup.sql
+
+    - name: Wait for the PostgreSQL pod to be ready
+      shell: kubectl rollout status deployment/postgres -n default
+      register: rollout_status
+      failed_when: "'successfully rolled out' not in rollout_status.stdout"
+
+    - name: Get the PostgreSQL pod name
+      command: kubectl get pods -l app=postgres -o jsonpath='{.items[0].metadata.name}'
+      register: postgres_pod_name
+
+    - name: Restore the database
       shell: |
-        kubectl exec -i $(kubectl get pod -l app=postgres -o jsonpath='{.items[0].metadata.name}') -- psql -U postgres -d cfrs_db < /tmp/backup.sql
+        kubectl exec -i {{ postgres_pod_name.stdout }} -- psql -U postgres -d cfrs_db < /tmp/backup.sql
       args:
         executable: /bin/bash
