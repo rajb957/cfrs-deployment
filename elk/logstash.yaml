@@ -16,18 +16,41 @@ spec:
     spec:
       containers:
       - name: logstash
-        image: docker.elastic.co/logstash/logstash:8.10.0
+        image: docker.elastic.co/logstash/logstash:8.17.0
         ports:
-        - containerPort: 5044
+        - containerPort: 5044  # Default Beats input port
+        - containerPort: 9600  # Monitoring API
+        env:
+        - name: LS_JAVA_OPTS
+          value: "-Xms256m -Xmx256m"  # Reduce memory usage
+        resources:
+          requests:
+            memory: "256Mi"
+            cpu: "300m"
+          limits:
+            memory: "512Mi"
+            cpu: "500m"
         volumeMounts:
         - name: logstash-config
-          mountPath: /usr/share/logstash/config
-        - name: logstash-pipeline
           mountPath: /usr/share/logstash/pipeline
       volumes:
       - name: logstash-config
         configMap:
-          name: logstash-config
-      - name: logstash-pipeline
-        configMap:
-          name: logstash-pipeline
+          name: logstash-config  # Define a ConfigMap for the pipeline
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: logstash-config
+data:
+  logstash.conf: |
+    input {
+      beats {
+        port => 5044
+      }
+    }
+    output {
+      elasticsearch {
+        hosts => ["http://elasticsearch:9200"]
+      }
+    }

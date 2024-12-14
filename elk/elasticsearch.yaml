@@ -1,9 +1,10 @@
 apiVersion: apps/v1
-kind: StatefulSet
+kind: Deployment
 metadata:
   name: elasticsearch
+  labels:
+    app: elasticsearch
 spec:
-  serviceName: elasticsearch
   replicas: 1
   selector:
     matchLabels:
@@ -15,12 +16,25 @@ spec:
     spec:
       containers:
       - name: elasticsearch
-        image: docker.elastic.co/elasticsearch/elasticsearch:8.10.0
+        image: docker.elastic.co/elasticsearch/elasticsearch:8.17.0
         ports:
         - containerPort: 9200
-          name: http
         - containerPort: 9300
-          name: transport
         env:
         - name: discovery.type
-          value: single-node
+          value: "single-node"  # Single-node mode to save resources
+        - name: ES_JAVA_OPTS
+          value: "-Xms512m -Xmx512m"  # Limit memory usage
+        resources:
+          requests:
+            memory: "512Mi"
+            cpu: "500m"
+          limits:
+            memory: "1Gi"
+            cpu: "1"
+        volumeMounts:
+        - name: elasticsearch-data
+          mountPath: /usr/share/elasticsearch/data
+      volumes:
+      - name: elasticsearch-data
+        emptyDir: {}

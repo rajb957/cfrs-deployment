@@ -2,6 +2,8 @@ apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: kibana
+  labels:
+    app: kibana
 spec:
   replicas: 1
   selector:
@@ -14,6 +16,16 @@ spec:
     spec:
       containers:
       - name: kibana
-        image: elastic/kibana:8.17.0
+        image: docker.elastic.co/kibana/kibana:8.17.0
         ports:
         - containerPort: 5601
+        env:
+        - name: ELASTICSEARCH_HOSTS
+          value: "http://elasticsearch:9200"
+        resources:
+          requests:
+            memory: "256Mi"
+            cpu: "200m"
+          limits:
+            memory: "512Mi"
+            cpu: "400m"
