@@ -18,7 +18,7 @@ spec:
         env:
         - name: DATABASE_URL
           # value: postgresql://postgres:8opUUxq.~I7yXs8UJIS7xIR3G35LJvpB@autorack.proxy.rlwy.net:37716/railway
-          value: postgresql://postgres:password@postgres:5432/cfrs_db
+          value: postgresql://postgres:password@postgres:5432/railway
         ports:
         - containerPort: 8000
 ---
