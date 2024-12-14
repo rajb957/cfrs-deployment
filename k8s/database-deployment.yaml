@@ -21,7 +21,7 @@ spec:
         - name: POSTGRES_PASSWORD
           value: password
         - name: POSTGRES_DB
-          value: cfrs_db
+          value: railway
         ports:
         - containerPort: 5432
 ---
