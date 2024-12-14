@@ -1,0 +1,185 @@
+pipeline {
+    agent any
+    environment {
+        BACKEND_IMAGE = "rajb957/cfrs-backend:latest"
+        FRONTEND_IMAGE = "rajb957/cfrs-frontend:latest"
+        DOCKER_CREDENTIALS = '3f9aafad-0921-4e26-9224-e77f5f69d0f0'
+    }
+    stages {
+        stage('Delete cluster')
+        {
+            steps
+            {
+                script
+                {
+                    sh 'kind delete cluster --name cfrs-cluster'
+                }
+            }
+        }
+        stage('Initialize Minikube') {
+            steps {
+                script {
+                    sh '''
+                    kind create cluster \
+                --name cfrs-cluster \
+                --config - <<EOF
+                kind: Cluster
+                apiVersion: kind.x-k8s.io/v1alpha4
+                nodes:
+                - role: control-plane
+                kubeadmConfigPatches:
+                - |
+                    kind: InitConfiguration
+                    nodeRegistration:
+                    kubeletExtraArgs:
+                        node-labels: "ingress-ready=true"
+                extraPortMappings:
+                - containerPort: 80
+                    hostPort: 80
+                    protocol: TCP
+                - containerPort: 443
+                    hostPort: 443
+                    protocol: TCP
+                EOF
+
+            # Configure kubectl to use kind cluster
+            kind export kubeconfig --name cfrs-cluster
+            
+            # Fetch Minikube IP dynamically
+            MINIKUBE_IP=$(docker inspect -f '{{range.NetworkSettings.Networks}}{{.IPAddress}}{{end}}' $(docker ps -q -f "name=cfrs-cluster-control-plane"))
+            echo "${MINIKUBE_IP}" > minikube_ip.txt
+            '''
+            stash includes: 'minikube_ip.txt', name: 'minikube-ip'
+                }
+            }
+        }
+
+        stage('Clone Repositories') {
+            steps {
+                parallel(
+                    deploymentRepo: {
+                        git url: 'https://github.com/rajb957/cfrs-deployment.git', branch: 'main'
+                    },
+                    backendRepo: {
+                        dir('backend') {
+                            git url: 'https://github.com/rajb957/cfrs-backend.git', branch: 'main'
+                        }
+                    },
+                    frontendRepo: {
+                        dir('frontend') {
+                            git url: 'https://github.com/rajb957/cfrs-frontend.git', branch: 'main'
+                        }
+                    }
+                )
+            }
+        }
+        stage('Deploy Database') {
+            steps {
+                dir('k8s') {
+                    sh 'kubectl apply -f database-deployment.yaml'
+                    sh 'kubectl rollout status deployment/postgres'
+                }
+            }
+        }
+        stage('Build and Push Backend Image') {
+            steps {
+                script {
+                    docker.withRegistry('', DOCKER_CREDENTIALS) {
+                        dir('backend') {
+                            docker.build(BACKEND_IMAGE).push()
+                        }
+                    }
+                }
+            }
+        }
+        stage('Deploy Backend') {
+            steps {
+                dir('k8s') {
+                    sh '''
+                        kubectl apply -f backend-deployment.yaml
+                        kubectl rollout status deployment/cfrs-backend
+                    '''
+                }
+            }
+        }
+        stage('Get Backend NodePort') {
+            steps {
+                script {
+                    unstash 'minikube-ip'
+                    env.MINIKUBE_IP = sh(script: "cat minikube_ip.txt", returnStdout: true).trim()
+                    env.BACKEND_NODE_PORT = sh(script: "kubectl get svc cfrs-backend -o=jsonpath='{.spec.ports[0].nodePort}'", returnStdout: true).trim()
+                    echo "Minikube IP: ${env.MINIKUBE_IP}"
+                    echo "Backend NodePort: ${env.BACKEND_NODE_PORT}"
+
+                    def backendUrl = "http://${env.MINIKUBE_IP}:${env.BACKEND_NODE_PORT}"
+                    echo "Setting frontend ConfigMap with backend URL: ${backendUrl}"
+                    env.BACKEND_URL = backendUrl
+                }
+            }
+        }
+
+        stage('Describe backend') {
+            steps {
+                sh '''
+                kubectl get svc cfrs-backend
+                kubectl get pods
+                '''
+            }
+        }
+        stage('Build and Push Frontend Image') 
+        {
+            steps {
+                script {
+                    docker.withRegistry('', DOCKER_CREDENTIALS) {
+                        dir('frontend') {
+                            docker.build("${FRONTEND_IMAGE}", "--build-arg BACKEND_URL=${env.BACKEND_URL} .").push()
+                        }
+                    }
+                }
+            }
+        }
+
+        stage('Deploy Frontend') {
+            steps {
+                dir('k8s') {
+                    script {
+                        sh """
+                            sed 's|__BACKEND_URL__|${env.BACKEND_URL}|g' frontend-deployment.yaml > frontend-deployment-processed.yaml
+                            kubectl apply -f frontend-deployment-processed.yaml
+                            kubectl rollout status deployment/cfrs-frontend
+                        """
+                    }
+                }
+            }
+        }
+        stage('Describe Frontend')
+        {
+            steps {
+                sh '''
+                kubectl get svc cfrs-frontend
+                kubectl get pods
+                '''
+            }
+        }
+        stage('Get frontend NodePort') {
+            steps {
+                script {
+                    unstash 'minikube-ip'
+                    env.MINIKUBE_IP = sh(script: "cat minikube_ip.txt", returnStdout: true).trim()
+                    env.FRONTEND_NODE_PORT = sh(script: "kubectl get svc cfrs-frontend -o=jsonpath='{.spec.ports[0].nodePort}'", returnStdout: true).trim()
+                    echo "Minikube IP: ${env.MINIKUBE_IP}"
+                    echo "Backend NodePort: ${env.FRONTEND_NODE_PORT}"
+
+                    def backendUrl = "http://${env.MINIKUBE_IP}:${env.FRONTEND_NODE_PORT}"
+                    echo "Setting frontend ConfigMap with backend URL: ${backendUrl}"
+                    env.BACKEND_URL = backendUrl
+                }
+            }
+        }
+    }
+    post {
+        always {
+            cleanWs()
+        }
+    }
+}
