@@ -1,55 +1,61 @@
 pipeline {
+
     agent any
+
     environment {
+
         BACKEND_IMAGE = "rajb957/cfrs-backend:latest"
+
         FRONTEND_IMAGE = "rajb957/cfrs-frontend:latest"
+
         DOCKER_CREDENTIALS = '3f9aafad-0921-4e26-9224-e77f5f69d0f0'
+
     }
+
     stages {
-        stage('Delete cluster')
-        {
-            steps
-            {
-                script
-                {
+
+        stage('Delete cluster') {
+            steps {
+                script {
                     sh 'kind delete cluster --name cfrs-cluster'
                 }
             }
         }
+
         stage('Initialize Minikube') {
             steps {
                 script {
                     sh '''
                     kind create cluster \
-                --name cfrs-cluster \
-                --config - <<EOF
-                kind: Cluster
-                apiVersion: kind.x-k8s.io/v1alpha4
-                nodes:
-                - role: control-plane
-                kubeadmConfigPatches:
-                - |
-                    kind: InitConfiguration
-                    nodeRegistration:
-                    kubeletExtraArgs:
-                        node-labels: "ingress-ready=true"
-                extraPortMappings:
-                - containerPort: 80
-                    hostPort: 80
-                    protocol: TCP
-                - containerPort: 443
-                    hostPort: 443
-                    protocol: TCP
-                EOF
+                        --name cfrs-cluster \
+                        --config - <<EOF
+kind: Cluster
+apiVersion: kind.x-k8s.io/v1alpha4
+nodes:
+- role: control-plane
+  kubeadmConfigPatches:
+  - |
+    kind: InitConfiguration
+    nodeRegistration:
+      kubeletExtraArgs:
+        node-labels: "ingress-ready=true"
+  extraPortMappings:
+  - containerPort: 80
+    hostPort: 80
+    protocol: TCP
+  - containerPort: 443
+    hostPort: 443
+    protocol: TCP
+EOF
 
-            # Configure kubectl to use kind cluster
-            kind export kubeconfig --name cfrs-cluster
-            
-            # Fetch Minikube IP dynamically
-            MINIKUBE_IP=$(docker inspect -f '{{range.NetworkSettings.Networks}}{{.IPAddress}}{{end}}' $(docker ps -q -f "name=cfrs-cluster-control-plane"))
-            echo "${MINIKUBE_IP}" > minikube_ip.txt
-            '''
-            stash includes: 'minikube_ip.txt', name: 'minikube-ip'
+                    # Configure kubectl to use kind cluster
+                    kind export kubeconfig --name cfrs-cluster
+                    
+                    # Fetch Minikube IP dynamically
+                    MINIKUBE_IP=$(docker inspect -f '{{range.NetworkSettings.Networks}}{{.IPAddress}}{{end}}' $(docker ps -q -f "name=cfrs-cluster-control-plane"))
+                    echo "${MINIKUBE_IP}" > minikube_ip.txt
+                    '''
+                    stash includes: 'minikube_ip.txt', name: 'minikube-ip'
                 }
             }
         }
@@ -73,6 +79,7 @@ pipeline {
                 )
             }
         }
+
         stage('Deploy Database') {
             steps {
                 dir('k8s') {
@@ -81,6 +88,7 @@ pipeline {
                 }
             }
         }
+
         stage('Build and Push Backend Image') {
             steps {
                 script {
@@ -92,6 +100,7 @@ pipeline {
                 }
             }
         }
+
         stage('Deploy Backend') {
             steps {
                 dir('k8s') {
@@ -102,6 +111,7 @@ pipeline {
                 }
             }
         }
+
         stage('Get Backend NodePort') {
             steps {
                 script {
@@ -126,8 +136,8 @@ pipeline {
                 '''
             }
         }
-        stage('Build and Push Frontend Image') 
-        {
+
+        stage('Build and Push Frontend Image') {
             steps {
                 script {
                     docker.withRegistry('', DOCKER_CREDENTIALS) {
@@ -152,8 +162,8 @@ pipeline {
                 }
             }
         }
-        stage('Describe Frontend')
-        {
+
+        stage('Describe Frontend') {
             steps {
                 sh '''
                 kubectl get svc cfrs-frontend
@@ -161,6 +171,7 @@ pipeline {
                 '''
             }
         }
+
         stage('Get frontend NodePort') {
             steps {
                 script {
@@ -168,18 +179,126 @@ pipeline {
                     env.MINIKUBE_IP = sh(script: "cat minikube_ip.txt", returnStdout: true).trim()
                     env.FRONTEND_NODE_PORT = sh(script: "kubectl get svc cfrs-frontend -o=jsonpath='{.spec.ports[0].nodePort}'", returnStdout: true).trim()
                     echo "Minikube IP: ${env.MINIKUBE_IP}"
-                    echo "Backend NodePort: ${env.FRONTEND_NODE_PORT}"
-
-                    def backendUrl = "http://${env.MINIKUBE_IP}:${env.FRONTEND_NODE_PORT}"
-                    echo "Setting frontend ConfigMap with backend URL: ${backendUrl}"
-                    env.BACKEND_URL = backendUrl
+                    echo "Frontend NodePort: ${env.FRONTEND_NODE_PORT}"
                 }
             }
         }
-    }
+
+    //     stage('Deploy Filebeat for Backend Monitoring') 
+    //     {
+    //         steps {
+    //             dir('elk') {
+    //                 script {
+    //                     sh '''
+    //                     # Apply Filebeat configuration
+    //                     # curl -L -O https://raw.githubusercontent.com/elastic/beats/8.x/deploy/kubernetes/filebeat-kubernetes.yaml
+            
+    //                     # Update ConfigMap to monitor only cfrs-backend logs
+    //                     sed -i "s|/var/log/containers/*|/var/log/pods/*cfrs-backend*/*|g" filebeat-deployment.yaml
+            
+    //                     # Deploy Filebeat
+    //                     kubectl apply -f filebeat-deployment.yaml
+            
+    //                     # Wait for Filebeat pods to be ready
+    //                     kubectl rollout status daemonset/filebeat -n kube-system
+    //                     '''
+    //                 }
+    //             }
+    //         }
+    //     }
+
+
+    //     stage('Validate Filebeat Logs for Backend') {
+    //         steps {
+    //             script {
+    //                 sh '''
+    //                 # Get logs from Filebeat pods to ensure they are running
+    //                 kubectl logs -n kube-system -l k8s-app=filebeat
+
+    //                 # Validate backend logs are being picked up
+    //                 BACKEND_POD_NAME=$(kubectl get pods -n default -l app=cfrs-backend -o jsonpath='{.items[0].metadata.name}')
+    //                 echo "Backend Pod Name: $BACKEND_POD_NAME"
+    //                 kubectl logs -n default $BACKEND_POD_NAME
+    //                 '''
+    //             }
+    //         }
+    //     }
+
+    //     stage('Deploy Elasticsearch, Logstash, and Kibana') {
+    //         steps {
+    //             dir('elk') {
+    //                 script {
+    //                     sh '''
+    //                     # Deploy Elasticsearch
+    //                     kubectl apply -f elasticsearch.yaml
+    //                     kubectl rollout status deployment/elasticsearch
+
+    //                     # Deploy Logstash
+    //                     kubectl apply -f logstash.yaml
+    //                     kubectl rollout status deployment/logstash
+
+    //                     # Deploy Kibana
+    //                     kubectl apply -f kibana.yaml
+    //                     kubectl rollout status deployment/kibana
+    //                     '''
+    //                 }
+    //             }
+    //         }
+    //     }
+
+    //     stage('Validate ELK Stack') {
+    //         steps {
+    //             script {
+    //                 sh '''
+    //                 # Validate Elasticsearch health
+    //                 kubectl get pods -l app=elasticsearch
+
+    //                 # Validate Logstash is running
+    //                 kubectl get pods -l app=logstash
+
+    //                 # Validate Kibana is accessible
+    //                 kubectl get pods -l app=kibana
+    //                 '''
+    //             }
+    //         }
+    //     }
+    //     stage('Get Kibana URL') {
+    //         steps {
+    //             script {
+    //                 def kibanaServiceInfo = sh(
+    //                     script: "kubectl get svc -l app=kibana -o=jsonpath='{.items[0].spec.type}:{.items[0].spec.ports[0].nodePort}'",
+    //                     returnStdout: true
+    //                 ).trim()
+        
+    //                 def serviceType = kibanaServiceInfo.split(':')[0]
+    //                 def port = kibanaServiceInfo.split(':')[1]
+        
+    //                 if (serviceType == "NodePort") {
+    //                     // Using Minikube IP for NodePort
+    //                     unstash 'minikube-ip'
+    //                     env.MINIKUBE_IP = sh(script: "cat minikube_ip.txt", returnStdout: true).trim()
+    //                     env.KIBANA_URL = "http://${env.MINIKUBE_IP}:${port}"
+    //                 } else if (serviceType == "LoadBalancer") {
+    //                     // Using external IP for LoadBalancer
+    //                     env.KIBANA_URL = sh(
+    //                         script: "kubectl get svc -l app=kibana -o=jsonpath='{.items[0].status.loadBalancer.ingress[0].ip}:{.items[0].spec.ports[0].port}'",
+    //                         returnStdout: true
+    //                     ).trim()
+    //                 } else {
+    //                     error("Unknown service type for Kibana: ${serviceType}")
+    //                 }
+        
+    //                 echo "Kibana URL: ${env.KIBANA_URL}"
+    //             }
+    //         }
+    //     }
+
+    // }
+
     post {
         always {
             cleanWs()
         }
     }
 }
+
